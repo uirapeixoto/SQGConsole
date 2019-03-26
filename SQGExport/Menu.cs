@@ -9,13 +9,12 @@ namespace SQGExport
     {
         public string ArquivoSelecionado { get; set; }
 
-        public string Itens()
+        public string Itens(string path)
         {
 
             bool isValid = false;
             int numberTest;
             string menuSelecionado;
-            string path = Directory.GetCurrentDirectory();
 
             Console.WriteLine("Escolha o arquivo digitando o número correspondente:\n");
             foreach (var file in ListarArquivos(path))

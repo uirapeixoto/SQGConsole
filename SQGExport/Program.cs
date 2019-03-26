@@ -10,18 +10,23 @@ namespace SQGExport
     {
         static void Main(string[] args)
         {
+            string path = Directory.GetCurrentDirectory();
+            EnviromentEnum env = EnviromentEnum.Development;
+            if (env == EnviromentEnum.Development)
+                path = "D:\\Wiz\\SQG";
+
             var menu = new Menu();
-            var itemMenu = menu.Itens();
+            var itemMenu = menu.Itens(path);
 
             Console.WriteLine($"Arquivo Selecionado: {itemMenu}");
             Console.WriteLine($"Aguarde até o final do processamento.");
-            var result = Exportar();
+            var result = Exportar(itemMenu);
             Console.WriteLine($"Arquivos OutputFileFiltered.txt e OutputFileUpdated.txt gerados com sucesso. Precione qualquer tecla para finalizar.");
             Console.WriteLine($"Total de Registros: {result.TotalLines}. Total de registros filtrados {result.TotalLinesFiltereds}\n");
             Console.ReadKey();
         }
 
-        private static ResultModel Exportar()
+        private static ResultModel Exportar(string filesource)
         {
             int totalFiltered = 0;
             int totalUpdated = 0;
@@ -31,14 +36,14 @@ namespace SQGExport
             int counter = 1;
             string line;
             string path = Directory.GetCurrentDirectory();
-
             var ListReader = new List<SQGModel>();
-            //var tempPath = "F:\\projetos\\Wiz\\SQG\\";
-            //var fileReader = Path.Combine(tempPath, "ENVIO_0101_COB008_RelDistCobranca16032019.txt");
-            var fileReader = $@"{path}\ENVIO_0101_COB008_RelDistCobranca16032019.txt";
-            //var outputFileFiltered = Path.Combine(tempPath, "OutputFileFiltered.txt");
-            var outputFileFiltered = $@"{path}\OutputFileFiltered_{DateTime.Now.ToString("ddmmYYYY")}.txt";
-            //var outputFileUpdated = Path.Combine(tempPath, "OutputFileUpdated.txt");
+
+            EnviromentEnum env = EnviromentEnum.Development;
+            if (env == EnviromentEnum.Development)
+                path = "D:\\Wiz\\SQG";
+
+            var fileReader = $@"{path}\{filesource}";
+            var outputFileFiltered = $@"{path}\OutputFileFiltered.txt";
             var outputFileUpdated = $@"{path}\OutputFileUpdated.txt";
 
             var SQG = new SQGFile();
@@ -60,7 +65,7 @@ namespace SQGExport
                                 Linha = counter,
                                 Grupo = line.Substring(0, 6),
                                 Cota = line.Substring(6, 6),
-                                NoParcela = Int32.TryParse(line.Substring(648, 3), out noParcelaOut) ? noParcelaOut : 0,
+                                NoParcela = int.TryParse(line.Substring(648, 3), out noParcelaOut) ? noParcelaOut : 0,
                                 NomeConsorciado = line.Substring(12, 70),
                                 CdProduto = line.Substring(518, 3),
                                 Teste = (line.Substring(518, 2) == "AN") ? line.Substring(564, 6).Trim() : "",
@@ -87,6 +92,11 @@ namespace SQGExport
                             }
                             ListReader.Add(addRecord);
                         }
+                        else
+                        {
+                            fileFiltered.WriteLine(line);
+                            fileUpdated.WriteLine(line);
+                        }
                         counter++;
                     }
                     reader.Close();
@@ -98,7 +108,6 @@ namespace SQGExport
             {
                 Console.WriteLine($"Falha no processamento: {e.Message}");
             }
-            
 
             return new ResultModel
             {

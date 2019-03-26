@@ -9,9 +9,6 @@ namespace SQGExport
 {
     public class SQGFile
     {
-        public string CodCobrador { get; set; }
-        public string NroSequencia { get; set; }
-
         private static List<SQGModel> Dados(StreamReader reader)
         {
             int counter = 1;
@@ -28,6 +25,7 @@ namespace SQGExport
                     Grupo = line.Substring(0, 6),
                     Cota = line.Substring(6, 6),
                     NoParcela = Int32.TryParse(line.Substring(648, 3), out noParcelaOut) ? noParcelaOut : 0,
+                    CPFCNPJ = line.Substring(92, 14),
                     NomeConsorciado = line.Substring(12, 70),
                     CdProduto = line.Substring(518, 3),
                     Teste = (line.Substring(518, 3) == "ING") ? line.Substring(562, 10).Trim() : "",
@@ -45,6 +43,33 @@ namespace SQGExport
                 listData.Add(addData);
             }
             return listData;
+        }
+
+        public List<SqgDadosFiltradosModel> AgruparConsorciadoGrupoCota(List<SQGModel> dados)
+        {
+            return dados
+                .GroupBy(g => new { g.Grupo, g.Cota, g.CPFCNPJ })
+                .Select(x => new SqgDadosFiltradosModel
+                {
+                    Grupo = x.FirstOrDefault().Grupo,
+                    Cota = x.FirstOrDefault().Cota,
+                    CPFCNPJ = x.FirstOrDefault().CPFCNPJ,
+                    NomeConsorciado = x.FirstOrDefault().NomeConsorciado,
+                    CdProduto = x.FirstOrDefault().CdProduto,
+                    Parcelas = x.Count(),
+                    Total = x.FirstOrDefault().ValorLiberado
+                })
+                .GroupBy(g => new { g.CPFCNPJ, g.NomeConsorciado })
+                .Select(s => new SqgDadosFiltradosModel
+                {
+                    Grupo = s.FirstOrDefault().Grupo,
+                    Cota = s.FirstOrDefault().Cota,
+                    CPFCNPJ = s.FirstOrDefault().CPFCNPJ,
+                    NomeConsorciado = s.FirstOrDefault().NomeConsorciado,
+                    CdProduto = s.FirstOrDefault().CdProduto,
+                    Parcelas = s.FirstOrDefault().Parcelas,
+                    Total = s.Sum(t => t.Total)
+                }).ToList();
         }
 
         public List<SqgDadosFiltradosModel> AgrupadorGrupoCotaConsorciadoProduto(List<SQGModel> dados)
@@ -91,6 +116,7 @@ namespace SQGExport
         {
             string line;
             double valorLiberadoOut;
+            int noParcelaOut;
             var ListReader = new List<SQGModel>();
             StreamReader reader = new StreamReader(fileReader, Encoding.GetEncoding(1252));
 
@@ -98,33 +124,28 @@ namespace SQGExport
             {
                 var addData = new SQGModel
                 {
+                    Grupo = line.Substring(0, 6),
+                    Cota = line.Substring(6, 6),
+                    NoParcela = Int32.TryParse(line.Substring(648, 3), out noParcelaOut) ? noParcelaOut : 0,
+                    CPFCNPJ = line.Substring(92, 14),
                     NomeConsorciado = line.Substring(12, 70),
                     CdProduto = line.Substring(518, 3),
+                    Teste = (line.Substring(518, 3) == "0IM") ? line.Substring(562, 10).Trim() : "",
                     ValorLiberado =
                         (line.Substring(518, 3) == "ANG") ?
                         (double.TryParse(line.Substring(564, 6).Trim().Replace("MIL", "000"), out valorLiberadoOut) ? valorLiberadoOut : 00.00) :
                         (line.Substring(518, 3) == "0AN") ?
-                        (double.TryParse(line.Substring(551, 6), out valorLiberadoOut) ? valorLiberadoOut : 0.00) :
+                        (double.TryParse(line.Substring(551, 6).Trim().Replace(".", "").Replace(",", "."), out valorLiberadoOut) ? valorLiberadoOut : 0.00) :
                         (line.Substring(518, 3) == "0IM") ?
-                        (double.TryParse(line.Substring(562, 10).Trim(), out valorLiberadoOut) ? valorLiberadoOut : 0.00) :
+                        (double.TryParse(line.Substring(562, 10).Trim().Replace(".", "").Replace(",", "."), out valorLiberadoOut) ? valorLiberadoOut : 0.00) :
                         (line.Substring(518, 3) == "ING") ?
-                        (double.TryParse(line.Substring(562, 10).Trim(), out valorLiberadoOut) ? valorLiberadoOut : 0.00) : 00.00,
+                        (double.TryParse(line.Substring(562, 10).Trim().Replace(".", "").Replace(",", "."), out valorLiberadoOut) ? valorLiberadoOut : 0.00) : 00.00,
                 };
 
                 ListReader.Add(addData);
             };
             reader.Close();
-            return ListReader
-                .GroupBy(g => new { g.NomeConsorciado, g.CdProduto })
-                .Select(x => new SqgDadosFiltradosModel
-                {
-                    Grupo = x.FirstOrDefault().Grupo,
-                    Cota = x.FirstOrDefault().Cota,
-                    NomeConsorciado = x.FirstOrDefault().NomeConsorciado,
-                    CdProduto = x.FirstOrDefault().CdProduto,
-                    Parcelas = x.Count(),
-                    Total = x.Sum(s => s.ValorLiberado)
-                }).Where(x => x.Total > 500000).Select(x => x.NomeConsorciado).ToList();
+            return AgruparConsorciadoGrupoCota(ListReader).Where(x => x.Parcelas == 2 && x.Total >= 500000).Select(x => x.NomeConsorciado).ToList();
         }
     }
 }
